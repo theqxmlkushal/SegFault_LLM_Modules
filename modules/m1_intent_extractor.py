@@ -24,6 +24,8 @@ class TravelIntent(BaseModel):
     accommodation_needed: bool = Field(False, description="Whether overnight stay is needed")
     transport_mode: Optional[str] = Field(None, description="Preferred transport: car/bike/bus/any")
     special_requirements: List[str] = Field(default_factory=list, description="Special needs or requirements")
+    search_alternatives: bool = Field(False, description="Whether to search for new alternatives")
+    confirmation_place: Optional[str] = Field(None, description="Confirmed destination name")
     original_query: str = Field(..., description="Original user query")
 
     @model_validator(mode='before')
@@ -60,26 +62,22 @@ class IntentExtractor:
     """
     
     SYSTEM_PROMPT = """You are an expert travel intent extraction system for WanderAI.
-Your job is to parse user travel queries and extract structured information.
+Your job is to parse travel queries into structured JSON.
 
-Extract the following information:
-- budget: Per person budget in INR (if mentioned)
-- group_size: Number of people (default 1 if not mentioned)
-- duration_days: Trip duration in days (weekend = 2, week = 7, etc.)
-- start_date: Preferred date in YYYY-MM-DD format (if mentioned)
-- interests: List of travel interests (beach, trek, adventure, peaceful, heritage, etc.)
-- avoid_list: Things user wants to avoid (crowds, heat, rain, etc.)
-- crowd_preference: User's crowd tolerance (low/medium/high/any)
-- accommodation_needed: true if overnight stay mentioned
-- transport_mode: Preferred transport (car/bike/bus/any)
-- special_requirements: Any special needs (elderly-friendly, kid-friendly, wheelchair access, etc.)
+Extract:
+- budget: Per person in INR. If vague, use None.
+- group_size: Number of people (default 1).
+- duration_days: Trip duration in days.
+- interests: List of interests (beach, trek, heritage, etc.).
+- destination: Specific place if mentioned.
+- search_alternatives: (Boolean) Set to true if the query suggests looking for NEW or OTHER options.
+- confirmation_place: (String) If the user confirmed a choice, put the place name here.
 
 Guidelines:
-- Be conservative: only extract explicitly mentioned information
-- For dates: "this weekend" = next Saturday, "next month" = first day of next month
-- For interests: infer from context (e.g., "relaxing" → peaceful, "adventure" → trek/adventure)
-- For budget: if range given, use the upper limit
-- For group: "friends" without number = assume 4, "family" = assume 4, "couple" = 2
+1. Don't force information. If user says "any budget", set budget to null.
+2. Infer common patterns: "friends" -> 4 people, "solo" -> 1.
+3. If user says "another" or "other", set search_alternatives to true.
+4. If "CONFIRMED" is in the refined query, extract the place into confirmation_place.
 
 Respond with valid JSON only."""
 

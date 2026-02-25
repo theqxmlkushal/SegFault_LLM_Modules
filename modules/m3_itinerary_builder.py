@@ -72,6 +72,21 @@ class Itinerary(BaseModel):
     important_notes: List[str] = Field(default_factory=list, description="Important information")
     emergency_contacts: Dict[str, str] = Field(default_factory=dict, description="Emergency contact numbers")
 
+    @field_validator('duration', mode='before')
+    @classmethod
+    def parse_duration(cls, v: Any) -> int:
+        if isinstance(v, int): return v
+        if isinstance(v, str):
+            # Extract first number found in string (e.g., "1 day" -> 1, "3d" -> 3)
+            match = re.search(r'\d+', v)
+            if match: return int(match.group())
+            
+            # Handle text numbers
+            text_map = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7}
+            for word, val in text_map.items():
+                if word in v.lower(): return val
+        return 1
+
     @model_validator(mode='before')
     @classmethod
     def restructure_itinerary(cls, data: Any) -> Any:

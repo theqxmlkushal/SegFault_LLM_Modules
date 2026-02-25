@@ -8,7 +8,9 @@ WanderAI is a high-performance, modular collection of LLM-powered agents designe
 - **Universal JSON Recovery**: The `LLMClient` salvaged valid data from messy LLM outputs through deep structural normalization.
 - **Unified LLM Intelligence**: Built-in support for Groq (Llama 3) and Gemini with automatic fallback logic.
 - **RAG-Powered Personalization**: Keyword-based Retrieval-Augmented Generation for locally grounded destination suggestions.
-- **Production-Ready Demo**: A high-polish terminal interface (`run.py`) to experience the full agentic flow.
+- **Conversational Engine**: A state-aware chatbot controller that handles follow-ups, context, and flexible travel queries.
+- **Backend Ready**: Includes a dedicated integration guide and reusable engine for seamless API development.
+- **Production-Ready Demo**: High-polish terminal interfaces (`run.py` and `chatbot.py`) to experience the full agentic flow.
 
 ## 🛠️ Project Structure
 
@@ -22,8 +24,12 @@ WanderAI is a high-performance, modular collection of LLM-powered agents designe
 │   └── rag_engine.py      # Keyword-based RAG engine
 ├── knowledge_base/        # RAG Data (JSON)
 ├── config.py              # Environment configuration
-├── run.py                 # Interactive Terminal Interface (Demo)
-└── requirements.txt       # Project dependencies
+├── run.py                 # Linear Pipeline Demo
+├── chatbot.py             # Conversational Chatbot Demo
+├── api_example.py         # Backend Integration Example
+├── BACKEND_INTEGRATION.md # Developer Guide for Backend Integration
+├── requirements.txt       # Project dependencies
+└── .env                   # API Keys (Git ignored)
 ```
 
 ## 🚥 Quick Start
@@ -41,11 +47,12 @@ GEMINI_API_KEY=your_gemini_key_here
 PRIMARY_LLM=groq
 ```
 
-### 3. Run the Demo
-Experience the full multi-agent pipeline:
-```bash
-python run.py
-```
+### 3. Experience the Flow
+- **Linear Pipeline**: `python run.py` (M1 -> M2 -> M3)
+- **Conversational Chatbot**: `python chatbot.py` (End-to-end with history and context)
+
+## 🛠️ Backend Integration
+If you are integrating these modules into a web backend (FastAPI, Node.js, etc.), please refer to **[BACKEND_INTEGRATION.md](file:///d:/AMD_Hackathon/wanderai_llm_modules/BACKEND_INTEGRATION.md)** for architecture recommendations and code examples.
 
 ## 🤖 Core Pipeline
 

@@ -9,9 +9,11 @@ from dotenv import load_dotenv
 # Load .env variables before anything else
 load_dotenv()
 
+from modules.m0_query_refiner import QueryRefiner
 from modules.m1_intent_extractor import IntentExtractor
 from modules.m2_destination_suggester import DestinationSuggester
 from modules.m3_itinerary_builder import ItineraryBuilder
+from modules.m6_place_description_generator import PlaceDescriptionGenerator
 
 def print_header(title):
     print("\n" + "=" * 80)
@@ -34,9 +36,11 @@ def main():
     
     # Initialize modules
     print("Initializing modules...")
+    refiner = QueryRefiner()
     extractor = IntentExtractor()
     suggester = DestinationSuggester()
     builder = ItineraryBuilder()
+    desc_gen = PlaceDescriptionGenerator()
     print("✓ Ready!\n")
     
     # Get user query
@@ -45,9 +49,15 @@ def main():
         print("Enter your travel query (e.g., 'Trip to Alibaug for 2 people, budget 5k'):")
         user_query = input("> ").strip()
     
+    # Step 0: Refine Query
+    print_header("Step 0: M0 - Query Refiner")
+    refined_query = refiner.refine(user_query)
+    print(f"Original: {user_query}")
+    print(f"Refined:  {refined_query}")
+    
     # Step 1: Extract Intent
     print_header("Step 1: M1 - Intent Extractor")
-    intent = extractor.extract(user_query)
+    intent = extractor.extract(refined_query)
     print(json.dumps(intent.model_dump(), indent=2))
     
     # Step 2: Suggest Destinations
@@ -60,6 +70,13 @@ def main():
     # Select best match
     chosen_dest = suggestions.destinations[0]
     print(f"\n✓ Selected: {chosen_dest.name}\n")
+    
+    # Step 2.5: Generate Place Description
+    print_header("Step 2.5: M6 - Place Description Generator")
+    print(f"Generating summary for {chosen_dest.name}...")
+    description = desc_gen.generate(chosen_dest.name)
+    print(f"\n✨ About {chosen_dest.name}:")
+    print(f"{description}\n")
     
     # Step 3: Build Itinerary
     print_header("Step 3: M3 - Itinerary Builder")
