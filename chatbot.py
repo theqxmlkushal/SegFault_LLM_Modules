@@ -61,10 +61,10 @@ class WanderAIChatbot:
     def is_frustration_or_emotion(self, query: str) -> bool:
         """LAYER 0: Detect if query is frustration/emotion, not an actual request."""
         frustration_markers = {
-            "anger": ["fuck", "damn", "shit", "crap", "pissed", "bullshit"],
-            "confusion": ["what", "why", "how is this"],
-            "helplessness": ["please", "dude", "bro", "help"],
-            "short_curses": ["the fuck", "what the fuck", "fuck this", "damn it"],
+            "anger": ["fuck", "damn", "shit", "crap", "pissed", "bullshit", "motherfucker", "suck", "useless", "garbage", "trash"],
+            "confusion": ["what", "why", "how is this", "wth", "tf"],
+            "helplessness": ["please", "dude", "bro", "help", "beg"],
+            "short_curses": ["the fuck", "what the fuck", "fuck this", "damn it", "mother fucker", "holy shit"],
         }
         
         query_lower = query.lower().strip()
@@ -74,15 +74,26 @@ class WanderAIChatbot:
             if curse in query_lower or query_lower == curse:
                 return True
         
-        # Check for very short frustration expressions
+        # Check for very short frustration expressions or single words
+        words = query_lower.split()
+        if any(word in frustration_markers["anger"] for word in words):
+            return True
+        
         if query_lower in frustration_markers["anger"]:
             return True
-        
-        # "the fuck" by itself
-        if query_lower == "the fuck" or query_lower == "fuck":
-            return True
-        
+            
         return False
+
+    def reset_session(self):
+        """Reset all conversational state variables."""
+        self.state = "suggestion"
+        self.current_intent = None
+        self.current_suggestions = None
+        self.selected_destination = None
+        self.awaiting_clarification_response = False
+        self.pending_clarification_query = None
+        self.pending_query_types = None
+        self.history.append({"role": "System", "content": "Session state reset"})
 
     def classify_query_type(self, query: str) -> List[str]:
         """LAYER 1: Classify what type of trip/activity the user is asking for."""
@@ -110,6 +121,12 @@ class WanderAIChatbot:
 
     def is_query_independent(self, current_query: str) -> bool:
         """LAYER 1b: Check if current query is completely different from previous."""
+        query_lower = current_query.lower().strip()
+        
+        # Numeric or very short inputs are NOT independent queries (they are likely selections)
+        if query_lower.isdigit() or len(query_lower) <= 2:
+            return False
+            
         if not self.current_intent:
             return True  # First query, always independent
         
@@ -123,7 +140,6 @@ class WanderAIChatbot:
             "also plan", "next", "additionally", "furthermore"
         ]
         
-        query_lower = current_query.lower()
         if any(kw in query_lower for kw in trip_switch_keywords):
             return True
         
@@ -192,9 +208,14 @@ class WanderAIChatbot:
         if not self.state or self.state == "suggestion":
             return False  # Normal flow, no reset
         
-        # If in confirmation state, check if user is asking something NEW
-        if self.state == "confirmation":
-            new_query_patterns = ["plan", "suggest", "what about", "can you", "find", "another"]
+        # If in selection or confirmation state, check if user is asking something NEW
+        if self.state in ["selection", "confirmation"]:
+            # If query is independent, we SHOULD reset
+            if self.is_query_independent(current_query):
+                return True
+            
+            # Additional heuristic for new query patterns
+            new_query_patterns = ["plan", "suggest", "find", "another", "trip", "destination"]
             if any(pattern in current_query.lower() for pattern in new_query_patterns):
                 return True
         
@@ -210,61 +231,45 @@ class WanderAIChatbot:
         
         # Only special characters or repeated characters
         alpha_numeric = [c for c in user_lower if c.isalnum()]
-        if len(alpha_numeric) < 3:
+        if len(alpha_numeric) < 2:  # Relaxed from 3 to 2 for things like "3"
             return True
         
         # Mostly repeated same character (spam)
-        if len(set(user_lower)) < 3:
-            return True  # "aaaaa", "xxxxx", "!!!!!!"
+        if len(set(user_lower)) < 3 and len(user_lower) > 5:
+            return True  # "aaaaaa", "!!!!!!", but allow "3," or "yes"
         
-        # Whitelist of legitimate travel/currency words that shouldn't be flagged
-        # These are common words that happen to have many letters from single QWERTY row
+        # Whitelist of legitimate travel/currency/common words that shouldn't be flagged
         whitelist_words = {
             "rupees", "rupee", "euros", "euro", "pounds", "dollars",
             "yen", "currency", "budget", "trip", "trek", "beach",
-            "mountain", "river", "temple", "restaurant", "hotel"
+            "mountain", "river", "temple", "restaurant", "hotel",
+            "proper", "itinerary", "itineary", "plans", "mumbai"
         }
         
-        # QWERTY keyboard rows for detection
+        # Keyboard rows for detection - made more conservative to avoid false positives
         qwerty_patterns = {
             "qwerty": "qwertyuiop",
             "asdf": "asdfghjkl",
             "zxcv": "zxcvbnm"
         }
         
-        # Check if mostly keyboard row letters (like "asdfhjk", "qwertyu", etc)
         words = user_lower.split()
         for word in words:
             clean_word = ''.join(c for c in word if c.isalpha())
             
-            if len(clean_word) < 4:
+            # Relaxed minimum word length for QWERTY check to avoid common words
+            if len(clean_word) < 7: 
                 continue
             
             # Skip whitelisted words
             if clean_word in whitelist_words:
                 continue
             
-            # Check if word is MOSTLY made of consecutive keyboard keys
+            # Increased threshold from 0.8 to 0.95 to only catch true keyboard smashing
             for row_pattern, full_row in qwerty_patterns.items():
-                # Count how many letters are from this keyboard row
                 from_row = sum(1 for c in clean_word if c in full_row)
-                if from_row / len(clean_word) > 0.8:  # 80%+ from one row
+                if from_row / len(clean_word) >= 0.95:  # 95%+ from one row
                     return True
-        
-        # Check for completely random letter sequences with vowel but no meaning
-        # Like "xyz", "abc" - these are alphabet sequences
-        alphabet = "abcdefghijklmnopqrstuvwxyz"
-        for word in words:
-            clean_word = ''.join(c for c in word if c.isalpha())
-            
-            if 3 <= len(clean_word) <= 5:
-                # Check if it's a sequential alphabet subset
-                # "abc", "xyz", "def" etc.
-                for i in range(len(alphabet) - len(clean_word) + 1):
-                    substr = alphabet[i:i+len(clean_word)]
-                    if clean_word == substr:
-                        # This is sequential alphabet, not a real word
-                        return True
         
         return False
 
@@ -405,50 +410,51 @@ class WanderAIChatbot:
                 self.print_bot_msg("Please enter a query (e.g., 'Plan a trip to Lonavala')")
                 continue
 
+            # ===== LAYER 0: Frustration/Emotion Detection (ABSOLUTE TOP PRIORITY) =====
+            if self.is_frustration_or_emotion(user_input):
+                self.reset_session() # CRITICAL: Reset state so frustration always breaks stuck states
+                self.print_bot_msg(
+                    "I hear you! 😊 I'm here to help make your travel planning smoother. "
+                    "Let's try a fresh start. What kind of trip are you looking for? "
+                    "(e.g., trekking, beach getaway, romantic date/trip, family outing)"
+                )
+                self.history.append({"role": "Bot", "content": "Frustration detected, session reset"})
+                continue
+
             # ===== SPECIAL CASE: Handle clarification response =====
             if self.awaiting_clarification_response:
                 # Check if user confirmed (yes, yep, sure, ok, etc.)
-                confirmation_responses = ["yes", "yep", "yeah", "sure", "ok", "okay", "absolutely", "definitely", "let's go", "sounds good"]
-                rejection_responses = ["no", "nope", "nah", "cancel", "never mind"]
+                confirmation_responses = ["yes", "yep", "yeah", "sure", "ok", "okay", "absolutely", "definitely", "let's go", "sounds good", "yap", "yup"]
+                rejection_responses = ["no", "nope", "nah", "cancel", "never mind", "don't"]
                 
                 user_lower = user_input.lower()
                 
-                if any(resp in user_lower for resp in confirmation_responses):
+                if any(resp == user_lower or user_lower.startswith(resp) for resp in confirmation_responses):
                     # User confirmed clarification, reprocess the pending query
-                    self.awaiting_clarification_response = False
                     if self.pending_clarification_query:
-                        # Reprocess the query that needed clarification
                         pending_q = self.pending_clarification_query
-                        self.pending_clarification_query = None
-                        self.pending_query_types = None
-                        # Now process this query in suggestion flow
-                        self.handle_suggestion_flow(pending_q)
+                        self.reset_session() # Clear THE OLD STATE COMPLETELY BEFORE RE-PROCESSING
+                        # Pass a flag to skip clarification check this time since it was just confirmed
+                        self.handle_suggestion_flow(pending_q, skip_clarification=True)
                         continue
                 
-                elif any(resp in user_lower for resp in rejection_responses):
+                elif any(resp == user_lower or user_lower.startswith(resp) for resp in rejection_responses):
                     # User rejected, clear pending context
-                    self.awaiting_clarification_response = False
-                    self.pending_clarification_query = None
-                    self.pending_query_types = None
-                    self.print_bot_msg("No problem! What else can I help you plan?")
+                    self.reset_session()
+                    self.print_bot_msg("No problem! What else can I help you plan? Tell me your interests!")
                     continue
                 
-                # User gave unclear response to clarification
-                self.print_bot_msg("I'm not sure if you're confirming or not. Please say 'yes' or 'no' to the clarification.")
-                continue
+                # IMPORTANT: If user gives a NEW independent query instead of yes/no
+                query_types = self.classify_query_type(user_input)
+                if self.is_query_independent(user_input) and query_types != ["general"]:
+                    self.reset_session()
+                    # Fall through to normal processing for this new query
+                else:
+                    # User gave unclear response to clarification
+                    self.print_bot_msg("I'm not sure if you're confirming or not. Please say 'yes' or 'no' to the clarification.")
+                    continue
 
-            # ===== LAYER 0-3 CHECKS (BEFORE STATE ROUTING) =====
-            # These must be checked FIRST, even if in selection/confirmation state
-            
-            # LAYER 0: Frustration/Emotion Detection
-            if self.is_frustration_or_emotion(user_input):
-                self.print_bot_msg(
-                    "I sense some frustration! 😊 I'm here to help with travel planning. "
-                    "What destination or trip type are you interested in? "
-                    "For example: trekking, beach getaway, romantic trip, family outing?"
-                )
-                self.history.append({"role": "Bot", "content": "Frustration detected, not a query"})
-                continue
+            # ===== LAYER 1-3 CHECKS (STATE ROUTING) =====
             
             # LAYER 1: Query Type Classification & Independence Detection
             query_types = self.classify_query_type(user_input)
@@ -495,18 +501,11 @@ class WanderAIChatbot:
                 # Normal suggestion flow
                 self.handle_suggestion_flow(user_input)
 
-    def handle_suggestion_flow(self, user_input: str):
+    def handle_suggestion_flow(self, user_input: str, skip_clarification: bool = False):
         """Handle normal suggestion flow with comprehensive edge case handling."""
         
-        # ===== LAYER 0: Frustration/Emotion Detection =====
-        if self.is_frustration_or_emotion(user_input):
-            self.print_bot_msg(
-                "I sense some frustration! 😊 I'm here to help with travel planning. "
-                "What destination or trip type are you interested in? "
-                "For example: trekking, beach getaway, romantic trip, family outing?"
-            )
-            self.history.append({"role": "Bot", "content": "Frustration detected, not a query"})
-            return
+        # NOTE: Frustration detection (Layer 0) is now handled at the run() loop level
+        # to ensure it breaks selection/confirmation states.
         
         # ===== LAYER 1: Query Type Classification & Independence =====
         query_types = self.classify_query_type(user_input)
@@ -522,11 +521,16 @@ class WanderAIChatbot:
             self.selected_destination = None
         
         # ===== LAYER 1b: Check if needs clarification =====
-        needs_clarif, clarif_msg = self.needs_clarification(user_input, query_types)
-        if needs_clarif:
-            self.print_bot_msg(clarif_msg)
-            self.history.append({"role": "Bot", "content": f"Clarification requested: {clarif_msg}"})
-            return
+        if not skip_clarification:
+            needs_clarif, clarif_msg = self.needs_clarification(user_input, query_types)
+            if needs_clarif:
+                self.print_bot_msg(clarif_msg)
+                self.history.append({"role": "Bot", "content": f"Clarification requested: {clarif_msg}"})
+                # Store for reprocessing
+                self.awaiting_clarification_response = True
+                self.pending_clarification_query = user_input
+                self.pending_query_types = query_types
+                return
         
         # ===== LAYER 2: Verify this is actually a TRAVEL TRIP =====
         if not self.is_travel_trip_query(user_input, query_types):
@@ -652,8 +656,23 @@ class WanderAIChatbot:
             self.history.append({"role": "Bot", "content": "No grounded destinations found"})
             return
         
-        # Store suggestions and display options
+        # Store suggestions
         self.current_suggestions = grounded_dests[:3]
+        
+        # ===== NEW: Direct Destination Selection Layer =====
+        # If user explicitly named a destination in their query, skip the choice screen
+        user_input_lower = user_input.lower()
+        for dest in self.current_suggestions:
+            # Check if destination name is in user query (e.g. "mumbai", "lonavala")
+            # We use a word-boundary check or simple inclusion for common names
+            dest_name_clean = dest.name.lower().replace("beach", "").replace("lake", "").replace("fort", "").strip()
+            if dest_name_clean in user_input_lower or dest.name.lower() in user_input_lower:
+                self.print_bot_msg(f"I see you're interested in {dest.name}! Let me build that itinerary for you right away.")
+                self.selected_destination = dest
+                self._build_and_confirm_itinerary()
+                return
+
+        # Otherwise, display options as usual
         self.display_options(self.current_suggestions, intent)
         self.state = "selection"
         self.history.append({"role": "Bot", "content": f"Suggested {len(self.current_suggestions)} grounded options"})
@@ -692,7 +711,8 @@ class WanderAIChatbot:
                 self._build_and_confirm_itinerary()
                 return
             else:
-                self.print_bot_msg(f"Please enter a number between 1 and {len(self.current_suggestions)}")
+                range_msg = f"between 1 and {len(self.current_suggestions)}" if len(self.current_suggestions) > 1 else "1"
+                self.print_bot_msg(f"Please enter {range_msg} or the name of the destination.")
                 return
         except ValueError:
             pass  # Not a number, try other methods

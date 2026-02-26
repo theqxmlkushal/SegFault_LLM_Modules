@@ -11,7 +11,14 @@
     "nearby_food": "Sanman Restaurant, Boardwalk by Flamboyante, Kiki's Cafe & Deli",
     "nearby_hotels": "Radisson Blu Resort, U Tropicana, Maple IVY Resort",
     "tips": "Book ferry tickets in advance during peak season. Carry sunscreen and beach wear. Try local seafood at beach shacks.",
-    "tags": ["beach", "water sports", "weekend getaway", "family friendly"]
+    "tags": [
+      "beach",
+      "water sports",
+      "weekend getaway",
+      "family friendly",
+      "romantic",
+      "seafood"
+    ]
   },
   {
     "name": "Sinhagad Fort",
@@ -25,7 +32,13 @@
     "nearby_food": "Sinhagad Fort food stalls (famous for Zunka Bhakar, Pithla Bhakri)",
     "nearby_hotels": "Limited options, mostly day trip destination",
     "tips": "Start early morning to avoid crowds. Wear comfortable trekking shoes. Try the local Maharashtrian food at the top.",
-    "tags": ["fort", "trekking", "history", "sunrise", "monsoon"]
+    "tags": [
+      "fort",
+      "trekking",
+      "history",
+      "sunrise",
+      "monsoon"
+    ]
   },
   {
     "name": "Rajmachi Trek",
@@ -39,7 +52,13 @@
     "nearby_food": "Local village food, camping meal packages",
     "nearby_hotels": "Camping sites available, homestays in Udhewadi village",
     "tips": "Carry rain gear during monsoon. Book camping in advance. Start trek early morning. Difficulty: Moderate, 4-5 hours one way.",
-    "tags": ["trek", "camping", "adventure", "monsoon", "overnight"]
+    "tags": [
+      "trek",
+      "camping",
+      "adventure",
+      "monsoon",
+      "overnight"
+    ]
   },
   {
     "name": "Lonavala",
@@ -53,7 +72,15 @@
     "nearby_food": "Rama Krishna, Golden Vada Pav, Cooper's Fudge",
     "nearby_hotels": "The Machan, Della Resorts, Fariyas Resort",
     "tips": "Avoid weekends if possible due to heavy traffic. Buy authentic Chikki from Maganlal or Cooper's. Visit Bhushi Dam during monsoon.",
-    "tags": ["hill station", "waterfalls", "family", "monsoon", "weekend"]
+    "tags": [
+      "hill station",
+      "waterfalls",
+      "family",
+      "monsoon",
+      "weekend",
+      "romantic",
+      "cafes"
+    ]
   },
   {
     "name": "Karla Caves",
@@ -67,7 +94,13 @@
     "nearby_food": "Limited options, better to eat in Lonavala (10 km away)",
     "nearby_hotels": "Stay in Lonavala, 10 km away",
     "tips": "Wear comfortable shoes for climbing steps. Carry water. Combine with Bhaja Caves (nearby). Photography allowed.",
-    "tags": ["heritage", "caves", "history", "buddhist", "architecture"]
+    "tags": [
+      "heritage",
+      "caves",
+      "history",
+      "buddhist",
+      "architecture"
+    ]
   },
   {
     "name": "Tamhini Ghat",
@@ -81,7 +114,13 @@
     "nearby_food": "Limited roadside stalls, carry snacks",
     "nearby_hotels": "Limited options, mostly day trip",
     "tips": "Drive carefully during monsoon - roads can be slippery. Carry raincoats. Best for bike enthusiasts. Multiple photo stops available.",
-    "tags": ["scenic drive", "monsoon", "waterfalls", "photography", "biking"]
+    "tags": [
+      "scenic drive",
+      "monsoon",
+      "waterfalls",
+      "photography",
+      "biking"
+    ]
   },
   {
     "name": "Panshet Dam",
@@ -95,7 +134,13 @@
     "nearby_food": "Camping meal packages, limited roadside options",
     "nearby_hotels": "Camping sites, Adventure resorts",
     "tips": "Book water sports in advance. Carry extra clothes. Life jackets provided. Good for team building activities.",
-    "tags": ["water sports", "camping", "adventure", "kayaking", "weekend"]
+    "tags": [
+      "water sports",
+      "camping",
+      "adventure",
+      "kayaking",
+      "weekend"
+    ]
   },
   {
     "name": "Mulshi Lake",
@@ -109,7 +154,14 @@
     "nearby_food": "Resort restaurants, limited roadside options",
     "nearby_hotels": "Atmantan Wellness Resort, Hilton Shillim, Corinthians Resort",
     "tips": "Perfect for relaxation and photography. Many resorts offer day packages. Ideal for couples and solo travelers seeking peace.",
-    "tags": ["lake", "peaceful", "photography", "resorts", "nature"]
+    "tags": [
+      "lake",
+      "peaceful",
+      "photography",
+      "resorts",
+      "nature",
+      "romantic"
+    ]
   },
   {
     "name": "Lavasa",
@@ -123,7 +175,15 @@
     "nearby_food": "Multiple restaurants and cafes in the city",
     "nearby_hotels": "Waterfront Shaw, Ekaant The Retreat, Fortune Select Dasve",
     "tips": "Entry fee applies. Water sports available. Good for photography. Avoid peak summer. Bike rentals available.",
-    "tags": ["planned city", "lake", "water sports", "family", "photography"]
+    "tags": [
+      "planned city",
+      "lake",
+      "water sports",
+      "family",
+      "photography",
+      "cafes",
+      "romantic"
+    ]
   },
   {
     "name": "Kamshet",
@@ -137,9 +197,14 @@
     "nearby_food": "Limited options, better to eat in Lonavala",
     "nearby_hotels": "Camping sites, budget hotels",
     "tips": "Book paragliding in advance. Weather dependent activity. Tandem flights available for beginners. Carry camera for aerial shots.",
-    "tags": ["paragliding", "adventure", "aerial views", "sports", "unique"]
-  }
-  ,
+    "tags": [
+      "paragliding",
+      "adventure",
+      "aerial views",
+      "sports",
+      "unique"
+    ]
+  },
   {
     "name": "Tiger's Leap",
     "category": "viewpoint",
@@ -152,7 +217,12 @@
     "nearby_food": "Small snack stalls near the viewpoint",
     "nearby_hotels": "Hotels in central Lonavala",
     "tips": "Arrive early for sunrise views. Beware of slippery edges in monsoon. Carry water and layers.",
-    "tags": ["viewpoint", "photography", "monsoon", "sunset"]
+    "tags": [
+      "viewpoint",
+      "photography",
+      "monsoon",
+      "sunset"
+    ]
   },
   {
     "name": "Bhushi Dam",
@@ -166,6 +236,91 @@
     "nearby_food": "Local food stalls and restaurants in Lonavala",
     "nearby_hotels": "Multiple hotels and resorts in Lonavala town",
     "tips": "Avoid peak monsoon hours when access may be restricted. Wear non-slip shoes. Keep valuables safe.",
-    "tags": ["waterfall", "monsoon", "family", "picnic"]
+    "tags": [
+      "waterfall",
+      "monsoon",
+      "family",
+      "picnic"
+    ]
+  },
+  {
+    "name": "Mumbai",
+    "category": "metropolis",
+    "distance": "150 km from Pune",
+    "drive_time": "3 hours",
+    "description": "The 'City of Dreams', Mumbai is a major metropolis known for its colonial architecture, sprawling markets, and the iconic Gateway of India. Famous for its vibrant street food, Marine Drive, and Bollywood film industry.",
+    "best_time": "October to March",
+    "cost": "₹1,500-3,000 per person",
+    "crowd_pattern": "Always high, especially at landmarks and beaches",
+    "nearby_food": "Bademiya, Leopolds Cafe, Britannia & Co.",
+    "nearby_hotels": "Taj Mahal Palace, Trident Nariman Point, Sahara Star",
+    "tips": "Use the local train or metro to avoid traffic. Try the Vada Pav and Cutting Chai. Visit Marine Drive at night.",
+    "tags": [
+      "city",
+      "heritage",
+      "shopping",
+      "food",
+      "metropolis"
+    ]
+  },
+  {
+    "name": "Mahabaleshwar",
+    "category": "hill station",
+    "distance": "120 km from Pune",
+    "drive_time": "3 hours",
+    "description": "Scenic hill station in the Sahyadri ranges, known for its pleasant weather, strawberry farms, and numerous viewpoints like Arthur's Seat and Echo Point. Famous for Venna Lake and historical Pratapgad Fort.",
+    "best_time": "October to June",
+    "cost": "₹2,000-4,000 per person",
+    "crowd_pattern": "High on weekends, peaks during summer and monsoon",
+    "nearby_food": "Mapro Garden, Bagicha Corner, Elsie's Dairy",
+    "nearby_hotels": "Le Meridien, Brightland Resort, Evershine Resort",
+    "tips": "Try the Strawberry with Cream at Mapro Garden. Visit late afternoon for clearer views from the points.",
+    "tags": [
+      "hill station",
+      "strawberry",
+      "nature",
+      "family",
+      "photography"
+    ]
+  },
+  {
+    "name": "Matheran",
+    "category": "hill station",
+    "distance": "120 km from Pune",
+    "drive_time": "3 hours",
+    "description": "India's only automobile-free hill station, Matheran is a peaceful retreat known for its lush greenery and panoramic views. Reachable via a scenic toy train or a short trek, it offers a truly unique experience with its red soil and colonial charm.",
+    "best_time": "October to May",
+    "cost": "₹1,500-3,000 per person",
+    "crowd_pattern": "Moderate, higher on weekends",
+    "nearby_food": "Local stalls for Thali, Shabbir's Biryani",
+    "nearby_hotels": "West End Hotel, The Byke Heritage, Adamo The Resort",
+    "tips": "Cars are not allowed inside, so be prepared to walk or take a horse ride. Pack comfortable walking shoes.",
+    "tags": [
+      "hill station",
+      "nature",
+      "peaceful",
+      "adventure",
+      "toy train"
+    ]
+  },
+  {
+    "name": "Bhandardara",
+    "category": "nature",
+    "distance": "160 km from Pune",
+    "drive_time": "4 hours",
+    "description": "A hidden gem known for its pristine lake (Arthur Lake), majestic Wilson Dam, and the highest peak in Maharashtra, Kalsubai. Famous for fireflies festival in pre-monsoon and tranquil camping sites.",
+    "best_time": "June to September for waterfalls, October to February for camping",
+    "cost": "₹1,000-2,000 per person",
+    "crowd_pattern": "Low to moderate, becoming popular for camping",
+    "nearby_food": "MTDC restaurant, local village food",
+    "nearby_hotels": "MTDC Resort, Anandvan Resort, Camping sites",
+    "tips": "Ideal for overnight camping. If visiting in pre-monsoon (May-June), don't miss the fireflies. Bring warm clothes for the night.",
+    "tags": [
+      "nature",
+      "camping",
+      "trekking",
+      "lake",
+      "offbeat"
+    ]
   }
 ]
