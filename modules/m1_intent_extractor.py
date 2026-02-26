@@ -118,9 +118,23 @@ Respond with valid JSON only."""
         
         # Add original query
         intent_data["original_query"] = user_query
-        
+
         # Validate and return as Pydantic model
-        return TravelIntent(**intent_data)
+        intent = TravelIntent(**intent_data)
+
+        # Fallback: if extractor didn't pick up a destination, try a simple regex
+        # to capture explicit mentions like 'to lonavala' or 'in lonavala'
+        if not intent.confirmation_place or str(intent.confirmation_place).strip() == "":
+            import re
+            m = re.search(r"\b(?:to|in|at)\s+([A-Za-z][\w\-\s]{1,40})", user_query, re.IGNORECASE)
+            if m:
+                cand = m.group(1).strip()
+                # cut off trailing words like 'for' or 'with' if present
+                cand = re.split(r"\b(for|with|on|during)\b", cand, flags=re.IGNORECASE)[0].strip()
+                # Title case for consistency
+                intent.confirmation_place = cand.title()
+
+        return intent
     
     def _create_prompt(self, user_query: str) -> str:
         """Create few-shot prompt with examples"""

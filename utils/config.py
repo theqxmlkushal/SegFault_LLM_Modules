@@ -43,10 +43,9 @@ class Settings(BaseSettings):
     # Timeouts
     LLM_TIMEOUT_SECONDS: int = 30
     # Temperature defaults for prompt tuning
-    # Set to 0.0 for deterministic/module outputs to reduce hallucination
-    DEFAULT_TEMPERATURE: float = 0.0
-    GENERAL_CHAT_TEMPERATURE: float = 0.0
-    MODULE_TEMPERATURE: float = 0.0
+    DEFAULT_TEMPERATURE: float = 0.7
+    GENERAL_CHAT_TEMPERATURE: float = 0.3
+    MODULE_TEMPERATURE: float = 0.3
 
     # Logging
     LOG_LEVEL: str = "INFO"

@@ -13,7 +13,6 @@ from modules.m0_query_refiner import QueryRefiner
 from modules.m1_intent_extractor import IntentExtractor
 from modules.m2_destination_suggester import DestinationSuggester
 from modules.m3_itinerary_builder import ItineraryBuilder
-from modules.m6_place_description_generator import PlaceDescriptionGenerator
 
 def print_header(title):
     print("\n" + "=" * 80)
@@ -40,7 +39,6 @@ def main():
     extractor = IntentExtractor()
     suggester = DestinationSuggester()
     builder = ItineraryBuilder()
-    desc_gen = PlaceDescriptionGenerator()
     print("✓ Ready!\n")
     
     # Get user query
@@ -70,13 +68,6 @@ def main():
     # Select best match
     chosen_dest = suggestions.destinations[0]
     print(f"\n✓ Selected: {chosen_dest.name}\n")
-    
-    # Step 2.5: Generate Place Description
-    print_header("Step 2.5: M6 - Place Description Generator")
-    print(f"Generating summary for {chosen_dest.name}...")
-    description = desc_gen.generate(chosen_dest.name)
-    print(f"\n✨ About {chosen_dest.name}:")
-    print(f"{description}\n")
     
     # Step 3: Build Itinerary
     print_header("Step 3: M3 - Itinerary Builder")

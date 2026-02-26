@@ -1,4 +1,0 @@
-# Minimal dependencies for LLM modules only
-groq==0.4.1
-pydantic==2.5.0
-python-dotenv==1.0.0

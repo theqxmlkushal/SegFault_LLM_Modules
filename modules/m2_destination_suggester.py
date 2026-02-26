@@ -3,6 +3,7 @@ M2: Destination Suggester Module
 Recommends 3-5 destinations based on user intent using RAG
 """
 import sys
+import re
 from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
 
@@ -23,6 +24,17 @@ class Destination(BaseModel):
     distance: Union[str, int, Dict[str, Any]] = Field("N/A", description="Distance from Pune")
     highlights: List[str] = Field(default_factory=list, description="Key highlights")
     best_for: List[str] = Field(default_factory=list, description="Best suited for")
+
+    @field_validator('match_score', mode='before')
+    @classmethod
+    def parse_score(cls, v: Any) -> int:
+        if isinstance(v, int): return v
+        if isinstance(v, str):
+            match = re.search(r'\d+', v)
+            if match: return int(match.group())
+            low_terms = ["low", "poor", "weak", "minimal"]
+            if any(t in v.lower() for t in low_terms): return 10
+        return 70
 
     @model_validator(mode='before')
     @classmethod
@@ -96,12 +108,12 @@ You will receive:
 1. User's travel intent (structured JSON)
 2. Relevant destination information from knowledge base
 
-Your task:
-- Analyze user preferences and match with available destinations
-- Rank destinations by relevance (match_score 0-100)
-- Provide clear reasoning for each recommendation
-- Consider: budget, interests, crowd preference, group size, duration
-- Be honest: if no perfect match, suggest closest alternatives
+CRITICAL: Anti-Hallucination & Reality Check Rules:
+- If your budget is impossible (e.g., ₹250 for 3 days), you MUST explicitly state this in the reasoning.
+- If a destination's estimated cost exceeds your budget, the match_score must be LOW (e.g., < 30%).
+- For poor budget matches, reasoning must start with "⚠️ **Budget Warning:**".
+- Be honest: If no place fits the budget, suggest the closest one but explain why it's a financial stretch.
+- Do NOT hallucinate success. If a request is unrealistic, give a clear, honest message using "you" and "your".
 
 Output format: JSON with destinations array, each containing:
 - name, category, match_score, reasoning, estimated_cost, distance, highlights, best_for
@@ -110,7 +122,7 @@ Also provide:
 - summary: 2-3 sentence overview of recommendations
 - tips: 3-5 practical tips for their specific trip
 
-Be conversational and helpful in your reasoning."""
+Be conversational and helpful, but primarily HONEST about constraints."""
 
     def __init__(
         self,
@@ -140,20 +152,36 @@ Be conversational and helpful in your reasoning."""
         
         # Retrieve relevant destinations from knowledge base
         context = self.rag_engine.search(search_query, top_k=top_k * 2)  # Get more for filtering
-        
+
+        # If RAG returns no documents, avoid generating ungrounded recommendations
+        if not context or "No relevant documents found" in str(context):
+            # Return an empty suggestions object with a clear message
+            return DestinationSuggestions(
+                destinations=[],
+                summary=(
+                    "I couldn't find grounded destination data matching your request in the knowledge base. "
+                    "Please relax filters, provide a place name, or allow me to use general suggestions."
+                ),
+                tips=[
+                    "Try specifying a nearby city or landmark.",
+                    "Increase the budget or relax duration constraints.",
+                    "Allow suggestions from a wider radius."
+                ]
+            )
+
         # Create prompt with intent and context
         prompt = self._create_prompt(intent, context)
-        
-        # Get LLM recommendations
+
+        # Get LLM recommendations (deterministic module temperature)
         response = self.llm_client.chat_completion(
             messages=[
                 {"role": "system", "content": self.SYSTEM_PROMPT},
                 {"role": "user", "content": prompt}
             ],
-            temperature=0.7,
+            temperature=getattr(self.llm_client, 'module_temperature', None) or 0.0,
             json_mode=True
         )
-        
+
         # Parse and validate response
         suggestions_data = self.llm_client.extract_json(response)
         
@@ -184,7 +212,13 @@ Be conversational and helpful in your reasoning."""
         # Add crowd preference
         if intent.crowd_preference == "low":
             query_parts.append("peaceful offbeat")
-        
+
+        # If user explicitly named a place, include it to bias results
+        if getattr(intent, 'confirmation_place', None):
+            # Put place at the front of the query to increase match weight
+            place = str(intent.confirmation_place)
+            return f"{place} " + (" ".join(query_parts) if query_parts else "weekend trip")
+
         return " ".join(query_parts) if query_parts else "weekend trip"
     
     def _create_prompt(self, intent: TravelIntent, context: str) -> str:

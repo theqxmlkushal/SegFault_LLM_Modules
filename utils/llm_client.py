@@ -3,6 +3,7 @@ Unified LLM Client for Groq and Gemini APIs
 Provides a simple interface with automatic fallback
 """
 import json
+import re
 from typing import Optional, Dict, Any, List
 from enum import Enum
 import time
@@ -25,7 +26,15 @@ except ImportError:
     GEMINI_AVAILABLE = False
     print("Warning: Gemini SDK not installed. Install with: pip install google-generativeai")
 
-from config import settings
+import sys
+from pathlib import Path
+
+# Add project root to sys.path to ensure module discovery
+root_dir = str(Path(__file__).parent.parent)
+if root_dir not in sys.path:
+    sys.path.append(root_dir)
+
+from utils.config import settings
 
 
 class LLMProvider(str, Enum):
@@ -64,6 +73,12 @@ class LLMClient:
         # Validate at least one client is available
         if not self.groq_client and not self.gemini_client:
             raise ValueError("No LLM client available. Please configure API keys.")
+
+        # Expose module temperature for callers
+        try:
+            self.module_temperature = getattr(settings, 'MODULE_TEMPERATURE', 0.0)
+        except Exception:
+            self.module_temperature = 0.0
     
     def chat_completion(
         self,
@@ -87,6 +102,15 @@ class LLMClient:
             Generated text response
         """
         provider = provider or self.primary_provider
+
+        # Enforce strict JSON-only instruction in system prompt when json_mode is requested
+        if json_mode:
+            if messages and messages[0].get("role") == "system":
+                if "Respond with valid JSON only" not in messages[0].get("content", ""):
+                    messages[0]["content"] = messages[0]["content"].rstrip() + "\n\nRespond with valid JSON only. Do not include any explanatory text outside the JSON."
+            else:
+                # Prepend a strict system message if none provided
+                messages.insert(0, {"role": "system", "content": "Respond with valid JSON only. Do not include any explanatory text outside the JSON."})
         
         # Try primary provider
         try:
@@ -162,7 +186,57 @@ class LLMClient:
             generation_config=generation_config
         )
         
-        return response.text
+        if not response.candidates:
+            raise Exception("Gemini returned no candidates. The prompt might have been blocked or the API is having issues.")
+            
+        try:
+            return response.text
+        except ValueError:
+            # This happens if the response was blocked by safety filters
+            if response.candidates[0].finish_reason == 3: # SAFETY
+                return "I'm sorry, I cannot generate a response for this request due to safety guidelines. Please try a different query."
+            raise Exception(f"Failed to get text from Gemini response. Reason: {response.candidates[0].finish_reason}")
+
+    def generate(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        conversation_history: Optional[List[Dict[str, str]]] = None,
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None,
+        json_mode: bool = False,
+        provider: Optional[LLMProvider] = None
+    ) -> str:
+        """
+        Unified generation helper used by engines.
+
+        Args:
+            system_prompt: System-level instructions
+            user_prompt: User-facing prompt or composed context
+            conversation_history: Optional history list of {'role','content'}
+            temperature: Sampling temperature (overrides defaults)
+            max_tokens: Maximum tokens
+            json_mode: Force JSON output
+            provider: Force provider
+
+        Returns:
+            Text response from underlying provider
+        """
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+
+        if conversation_history:
+            # Ensure history items are role/content dicts
+            for msg in conversation_history:
+                messages.append({"role": msg.get("role", "user"), "content": msg.get("content", "")})
+
+        messages.append({"role": "user", "content": user_prompt})
+
+        # Determine temperature
+        temp = temperature if temperature is not None else getattr(settings, "DEFAULT_TEMPERATURE", 0.7)
+
+        return self.chat_completion(messages, temperature=temp, max_tokens=max_tokens, json_mode=json_mode, provider=provider)
     
     def extract_json(self, text: str) -> Dict[str, Any]:
         """

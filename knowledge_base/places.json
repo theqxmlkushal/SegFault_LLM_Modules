@@ -139,4 +139,33 @@
     "tips": "Book paragliding in advance. Weather dependent activity. Tandem flights available for beginners. Carry camera for aerial shots.",
     "tags": ["paragliding", "adventure", "aerial views", "sports", "unique"]
   }
+  ,
+  {
+    "name": "Tiger's Leap",
+    "category": "viewpoint",
+    "distance": "65 km from Pune",
+    "drive_time": "1.5 hours",
+    "description": "A cliff-top with a sheer drop of over 650 feet offering panoramic views of the valley and waterfalls during monsoon. Popular at sunrise and sunset.",
+    "best_time": "Monsoon and post-monsoon (June-December)",
+    "cost": "Free (parking/transport costs apply)",
+    "crowd_pattern": "High on weekends and monsoon season",
+    "nearby_food": "Small snack stalls near the viewpoint",
+    "nearby_hotels": "Hotels in central Lonavala",
+    "tips": "Arrive early for sunrise views. Beware of slippery edges in monsoon. Carry water and layers.",
+    "tags": ["viewpoint", "photography", "monsoon", "sunset"]
+  },
+  {
+    "name": "Bhushi Dam",
+    "category": "water attraction",
+    "distance": "63 km from Pune",
+    "drive_time": "1.5 hours",
+    "description": "Popular dam and cascade that becomes a favorite picnic spot during monsoon when water flows over the steps. Local authorities sometimes restrict access during heavy rains.",
+    "best_time": "Monsoon (June-September)",
+    "cost": "Free (parking/transport costs apply)",
+    "crowd_pattern": "Very high during monsoon weekends",
+    "nearby_food": "Local food stalls and restaurants in Lonavala",
+    "nearby_hotels": "Multiple hotels and resorts in Lonavala town",
+    "tips": "Avoid peak monsoon hours when access may be restricted. Wear non-slip shoes. Keep valuables safe.",
+    "tags": ["waterfall", "monsoon", "family", "picnic"]
+  }
 ]

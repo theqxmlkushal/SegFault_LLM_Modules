@@ -1,69 +1,84 @@
 # WanderAI: Core LLM Journey Engine
 
-WanderAI is a high-performance, modular collection of LLM-powered agents designed to build intelligent travel planning pipelines. This repository focuses on the stable **M1-M3 Agent Core**, delivering a seamless flow from natural language intent to detailed, actionable itineraries.
+WanderAI is a modular LLM-based travel planning engine that converts natural-language requests into validated, actionable itineraries. The codebase emphasizes conservative generation, grounding with a local knowledge base (RAG), structured outputs (Pydantic models), and easy backend integration.
 
-## 🚀 Key Features
+## Highlights
 
-- **Agent-Grade Robustness**: Every module features ultra-robust Pydantic models with aggressive structural repair and key mapping.
-- **Universal JSON Recovery**: The `LLMClient` salvaged valid data from messy LLM outputs through deep structural normalization.
-- **Unified LLM Intelligence**: Built-in support for Groq (Llama 3) and Gemini with automatic fallback logic.
-- **RAG-Powered Personalization**: Keyword-based Retrieval-Augmented Generation for locally grounded destination suggestions.
-- **Conversational Engine**: A state-aware chatbot controller that handles follow-ups, context, and flexible travel queries.
-- **Backend Ready**: Includes a dedicated integration guide and reusable engine for seamless API development.
-- **Production-Ready Demo**: High-polish terminal interfaces (`run.py` and `chatbot.py`) to experience the full agentic flow.
+- Module pipeline (M0..M3) with a `ModuleDispatcher` to run specialized modules only when needed.
+- Unified LLM client (`utils/llm_client.py`) offering `generate()` and recovery tools to parse messy LLM outputs.
+- Response validation layer (`response_validation.py`) that cross-checks claims against the local RAG and redacts unsupported assertions.
+- Auto-reask pattern in the `ItineraryBuilder` to request citations and retry when JSON validation fails.
+- Lightweight integration surface (`api_adapter.py`) and developer docs for backend teams.
 
-## 🛠️ Project Structure
+## Repository Layout (important files)
 
-```text
-├── modules/               # Core LLM Agent Modules
-│   ├── m1_intent_extractor.py     # Parses raw queries into structured intents
-│   ├── m2_destination_suggester.py # RAG-based personalized recommendations
-│   └── m3_itinerary_builder.py    # Generates detailed day-by-day plans
-├── utils/                 # Utilities
-│   ├── llm_client.py      # Unified API wrapper with deep repair
-│   └── rag_engine.py      # Keyword-based RAG engine
-├── knowledge_base/        # RAG Data (JSON)
-├── config.py              # Environment configuration
-├── run.py                 # Linear Pipeline Demo
-├── chatbot.py             # Conversational Chatbot Demo
-├── api_example.py         # Backend Integration Example
-├── BACKEND_INTEGRATION.md # Developer Guide for Backend Integration
-├── requirements.txt       # Project dependencies
-└── .env                   # API Keys (Git ignored)
+```
+wanderai_llm_modules/
+├── modules/
+│   ├── module_dispatcher.py
+│   ├── m0_query_refiner.py
+│   ├── m1_intent_extractor.py
+│   ├── m2_destination_suggester.py
+│   └── m3_itinerary_builder.py
+├── utils/
+│   ├── llm_client.py
+│   ├── rag_engine.py
+│   └── formatters.py        # prettify outputs (emoji/markdown)
+├── knowledge_base/          # JSON docs used by SimpleRAG
+├── response_validation.py   # verifier and conservative redaction
+├── api_adapter.py           # backend-friendly handle_message() wrapper
+├── run.py                   # pipeline demo
+├── chatbot.py               # conversational demo
+├── tests/                   # unit tests (MockLLMClient)
+├── DOCUMENTATION.md         # architecture notes and how-to
+└── README.md
 ```
 
-## 🚥 Quick Start
+## Quick Start
 
-### 1. Setup Environment
+1. Install dependencies:
+
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. Configure API Keys
-Create a `.env` file in the root directory:
-```env
+2. Add your LLM API keys to `.env` (root):
+
+```ini
 GROQ_API_KEY=your_groq_key_here
 GEMINI_API_KEY=your_gemini_key_here
 PRIMARY_LLM=groq
 ```
 
-### 3. Experience the Flow
-- **Linear Pipeline**: `python run.py` (M1 -> M2 -> M3)
-- **Conversational Chatbot**: `python chatbot.py` (End-to-end with history and context)
+3. Run demos:
 
-## 🛠️ Backend Integration
-If you are integrating these modules into a web backend (FastAPI, Node.js, etc.), please refer to **[BACKEND_INTEGRATION.md](file:///d:/AMD_Hackathon/wanderai_llm_modules/BACKEND_INTEGRATION.md)** for architecture recommendations and code examples.
+```bash
+python run.py       # linear M1->M2->M3 pipeline demo
+python chatbot.py   # conversational demo with session context
+```
 
-## 🤖 Core Pipeline
+## Tests
 
-1.  **M1: Intent Extractor**: Converts messy user queries into clean data (budget, duration, group size, interests).
-2.  **M2: Destination Suggester**: Matches intent against the local knowledge base to suggest the best locations.
-3.  **M3: Itinerary Builder**: Generates specific timings, activities, and cost estimates for each day of the trip.
+Unit tests use a `MockLLMClient` so they run offline. Execute:
 
-## 🔧 Integration & Extensibility
+```bash
+pytest -q
+```
 
-The system is designed to be modular. You can swap out the RAG engine, add specialized ML prediction modules (for crowd or experience scores), or plug the modules into a FastAPI/Express backend.
+## Backend Integration
 
-## 📄 License
+Use `api_adapter.handle_message()` as the primary entrypoint for servers. It returns a dict with `response` (pretty string) and `data` (raw structured JSON). See `DOCUMENTATION.md` and `BACKEND_INTEGRATION.md` for examples and recommended patterns.
 
-MIT License - Free for experimental and commercial use.
+## Notes & Next Steps
+
+- Current RAG: keyword-based (`knowledge_base/*.json`). For production grounding, we recommend migrating to embeddings + vector search (FAISS/Chroma/Pinecone).
+- The code supports both Groq and Gemini; set `PRIMARY_LLM` in `.env`.
+- Pydantic v2 migration warnings may appear; the code includes compatibility helpers but a full migration is planned.
+
+If you'd like, I can:
+
+- Add an example FastAPI wrapper that calls `api_adapter.handle_message()` and returns JSON to clients.
+- Implement vector RAG indexing and a migration script.
+
+---
+MIT License

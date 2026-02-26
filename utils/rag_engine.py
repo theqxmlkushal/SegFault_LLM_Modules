@@ -1,35 +1,52 @@
 """
 Simple RAG (Retrieval-Augmented Generation) Engine
 Uses keyword matching for prototype - no vector embeddings needed
+Enhanced with grounding/source tracking and timestamp support
 """
 import json
 import os
+import hashlib
+import logging
 from typing import List, Dict, Any, Optional
 from pathlib import Path
+from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 
 class SimpleRAG:
     """
     Naive RAG implementation using keyword matching
     Perfect for prototypes with <100 documents
+
+    Enhanced features:
+    - Source tracking for hallucination prevention
+    - Timestamp tracking for knowledge base freshness
+    - Update log support for webhook-driven updates
     """
-    
+
     def __init__(self, knowledge_base_path: str = "knowledge_base"):
         self.kb_path = Path(knowledge_base_path)
         self.documents: List[Dict[str, Any]] = []
+        self.knowledge_base_timestamp = datetime.now()  # Track KB freshness
+        self.updates_log: List[Dict[str, Any]] = []  # Track webhook updates
         self.load_knowledge_base()
-    
+        self._load_updates_log()
+
     def load_knowledge_base(self):
         """Load all JSON files from knowledge base directory"""
         if not self.kb_path.exists():
             print(f"Warning: Knowledge base path {self.kb_path} does not exist")
             return
-        
+
+        self.documents = []
         for json_file in self.kb_path.glob("*.json"):
+            if json_file.name == "updates_log.json":
+                continue  # Skip updates log, load separately
             try:
                 with open(json_file, 'r', encoding='utf-8') as f:
                     data = json.load(f)
-                    
+
                     # Handle both list and dict formats
                     if isinstance(data, list):
                         self.documents.extend(data)
@@ -41,13 +58,50 @@ class SimpleRAG:
                             self.documents.extend(data['items'])
                         else:
                             self.documents.append(data)
-                
+
                 print(f"Loaded {json_file.name}")
             except Exception as e:
                 print(f"Error loading {json_file}: {e}")
-        
+
+        self.knowledge_base_timestamp = datetime.now()
         print(f"Total documents loaded: {len(self.documents)}")
-    
+
+    def _load_updates_log(self):
+        """Load webhook update log"""
+        updates_log_path = self.kb_path / "updates_log.json"
+        if updates_log_path.exists():
+            try:
+                with open(updates_log_path, 'r', encoding='utf-8') as f:
+                    self.updates_log = json.load(f)
+                    if isinstance(self.updates_log, dict) and "updates" in self.updates_log:
+                        self.updates_log = self.updates_log["updates"]
+                    print(f"Loaded {len(self.updates_log)} updates from log")
+            except Exception as e:
+                print(f"Error loading updates log: {e}")
+                self.updates_log = []
+        else:
+            self.updates_log = []
+
+    def add_update(self, update: Dict[str, Any]):
+        """Add a webhook update to log and refresh documents"""
+        if update.get("action") == "add":
+            self.documents.append(update.get("data"))
+        elif update.get("action") == "update":
+            # Find and update document
+            doc_id = update.get("data", {}).get("name", update.get("data", {}).get("id"))
+            for i, doc in enumerate(self.documents):
+                if doc.get("name") == doc_id or doc.get("id") == doc_id:
+                    self.documents[i].update(update.get("data"))
+                    break
+        elif update.get("action") == "delete":
+            # Find and delete document
+            doc_id = update.get("data", {}).get("name", update.get("data", {}).get("id"))
+            self.documents = [doc for doc in self.documents
+                            if doc.get("name") != doc_id and doc.get("id") != doc_id]
+
+        self.updates_log.append(update)
+        self.knowledge_base_timestamp = datetime.now()
+
     def retrieve(
         self,
         query: str,
@@ -56,37 +110,84 @@ class SimpleRAG:
     ) -> List[Dict[str, Any]]:
         """
         Retrieve most relevant documents using keyword matching
-        
+
         Args:
             query: Search query
             top_k: Number of documents to return
             filters: Optional filters (e.g., {"category": "beach"})
-        
+
         Returns:
             List of relevant documents with scores
         """
         query_words = set(query.lower().split())
         scored_docs = []
-        
+
         for doc in self.documents:
             # Apply filters if provided
             if filters:
                 if not all(doc.get(k) == v for k, v in filters.items()):
                     continue
-            
+
             # Calculate relevance score
             score = self._calculate_score(doc, query_words)
-            
+
             if score > 0:
                 scored_docs.append({
                     "document": doc,
-                    "score": score
+                    "score": score,
+                    "source": "places.json"  # Track source
                 })
-        
+
         # Sort by score and return top_k
         scored_docs.sort(key=lambda x: x["score"], reverse=True)
         return scored_docs[:top_k]
-    
+
+    def retrieve_with_sources(self,
+                             query: str,
+                             top_k: int = 3,
+                             filters: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """
+        Retrieve documents with explicit source and fact tracking for grounding
+
+        Returns dict with:
+        - documents: List of retrieved docs
+        - sources: Which KB file each fact came from
+        - kb_timestamp: When KB was last updated
+        - facts: List of extracted facts with sources
+        """
+        results = self.retrieve(query, top_k, filters)
+
+        facts = []
+        for result in results:
+            doc = result["document"]
+            # Extract key facts with sources
+            if "name" in doc:
+                facts.append({
+                    "fact": f"{doc['name']} is a {doc.get('category', 'destination')}",
+                    "source": "places.json",
+                    "field": "name"
+                })
+            if "description" in doc:
+                facts.append({
+                    "fact": doc["description"],
+                    "source": "places.json",
+                    "field": "description"
+                })
+            if "cost" in doc:
+                facts.append({
+                    "fact": f"Estimated cost: {doc['cost']}",
+                    "source": "places.json",
+                    "field": "cost"
+                })
+
+        return {
+            "documents": [r["document"] for r in results],
+            "sources": [r.get("source", "places.json") for r in results],
+            "kb_timestamp": self.knowledge_base_timestamp.isoformat(),
+            "facts": facts,
+            "scores": [r["score"] for r in results]
+        }
+
     def _calculate_score(self, doc: Dict[str, Any], query_words: set) -> float:
         """Calculate relevance score for a document"""
         score = 0.0

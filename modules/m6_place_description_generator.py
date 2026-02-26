@@ -11,6 +11,7 @@ sys.path.append(str(Path(__file__).parent.parent))
 
 from utils.llm_client import LLMClient
 from utils.rag_engine import SimpleRAG
+from utils.config import settings
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -23,14 +24,14 @@ class PlaceDescriptionGenerator:
     """
     
     SYSTEM_PROMPT = """You are WanderAI's travel writer.
-Your job is to create short, engaging, and highly descriptive snippets for specific travel destinations.
+Your job is to create short, factual, and descriptive snippets for specific travel destinations.
 
 Rules:
-1. Use the provided context to ensure accuracy. DO NOT hallucinate facts.
+1. STRICT FACTUAL GROUNDING: Use ONLY the provided context. DO NOT hallucinate facts, features, or distances.
 2. The description should be 3-5 sentences long.
-3. Use an inviting, professional, and evocative tone.
-4. Highlight unique features, best time to visit, or interesting tips mentioned in the context.
-5. If the context is missing specific details, focus on what is known rather than making things up.
+3. Tone: Maintain a balanced, informative, and professional tone. Avoid overly flowery or promotional language if the context is thin.
+4. Highlights: Mention unique features or tips ONLY if they appear in the provided context.
+5. If the context is missing, output: "This place is in our database but detailed descriptions are currently being updated. It is located [Distance] from Pune." (Fill in distance from context).
 """
 
     def __init__(self, llm_client: Optional[LLMClient] = None, rag_engine: Optional[SimpleRAG] = None):
@@ -43,11 +44,16 @@ Rules:
         
         # 1. Retrieve context from RAG
         context = self.rag_engine.search(place_name, top_k=2)
-        
-        if "No relevant documents found" in context:
-            logger.warning(f"No specific RAG data found for {place_name}. Proceeding with general knowledge (caution).")
-        
-        # 2. Generate description
+
+        # If no grounded docs are available, refuse to hallucinate and return safe message
+        if not context or "No relevant documents found" in str(context):
+            logger.warning(f"No specific RAG data found for {place_name}. Refusing to hallucinate.")
+            return (
+                f"{place_name} exists in our knowledge base, but detailed descriptions are currently unavailable. "
+                "Please provide more context or ask for nearby alternatives."
+            )
+
+        # 2. Generate description using conservative module temperature
         prompt = f"""
 Place: {place_name}
 Context: {context}
@@ -59,10 +65,10 @@ Generate a short, engaging description for this place.
                 {"role": "system", "content": self.SYSTEM_PROMPT},
                 {"role": "user", "content": prompt}
             ],
-            temperature=0.7,
+            temperature=getattr(settings, 'MODULE_TEMPERATURE', 0.0),
             json_mode=False
         )
-        
+
         description = response.strip()
         logger.info(f"Description generated successfully for {place_name}")
         return description

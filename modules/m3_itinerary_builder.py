@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 sys.path.append(str(Path(__file__).parent.parent))
 
 from utils.llm_client import LLMClient
+from utils.config import settings
 from utils.rag_engine import SimpleRAG
 from modules.m1_intent_extractor import TravelIntent
 from modules.m2_destination_suggester import Destination
@@ -153,7 +154,12 @@ class ItineraryBuilder:
     
     SYSTEM_PROMPT = """You are WanderAI's itinerary planning expert.
 Your job is to create detailed, practical day-by-day travel itineraries.
-Ensure the response is a valid JSON object."""
+Ensure the response is a valid JSON object.
+
+REALITY CHECK:
+- If the budget is clearly insufficient for the requested duration/accommodation, you MUST include a "⚠️ **BUDGET WARNING**" as the first item in the important_notes.
+- Do NOT hallucinate hotel names or luxury meals for impossible budgets. Instead, suggest survival-level options (e.g., street food, public transport) and explain why the original request is unrealistic.
+- Be honest about cost shortfalls."""
 
     def __init__(self, llm_client: Optional[LLMClient] = None, rag_engine: Optional[SimpleRAG] = None):
         self.llm_client = llm_client or LLMClient()
@@ -166,20 +172,63 @@ Ensure the response is a valid JSON object."""
         
         response = self.llm_client.chat_completion(
             messages=[{"role": "system", "content": self.SYSTEM_PROMPT}, {"role": "user", "content": prompt}],
-            temperature=0.7, json_mode=True
+            temperature=getattr(settings, 'MODULE_TEMPERATURE', 0.0), json_mode=True
         )
         
         itinerary_data = self.llm_client.extract_json(response)
-        
+
         # Inject defaults from inputs
-        if "destination" not in itinerary_data: itinerary_data["destination"] = destination.name
-        if "duration" not in itinerary_data: itinerary_data["duration"] = getattr(intent, 'duration_days', 1) or 1
-            
+        if "destination" not in itinerary_data:
+            itinerary_data["destination"] = destination.name
+        if "duration" not in itinerary_data:
+            itinerary_data["duration"] = getattr(intent, 'duration_days', 1) or 1
+
+        # Try to validate into Itinerary; if validation fails or days missing,
+        # perform a conservative auto-reask requesting sources and return result.
         try:
-            return Itinerary(**itinerary_data)
+            itinerary = Itinerary(**itinerary_data)
+            if not getattr(itinerary, 'days', None):
+                raise ValueError("Empty days")
+            return itinerary
         except Exception as e:
-            logger.error(f"Validation failed: {e}")
-            return Itinerary.model_validate(itinerary_data, strict=False)
+            logger.warning(f"Initial itinerary parse/validation failed: {e}")
+
+            # Auto-reask: request the LLM to regenerate with explicit citation instructions
+            try:
+                # In a modular structure, we import from the root prompts
+                import prompts
+                PROMPTS = prompts.PROMPTS
+
+                regen = self.llm_client.generate(
+                    system_prompt=PROMPTS.get('itinerary_citation_request'),
+                    user_prompt=prompt,
+                    conversation_history=None,
+                    temperature=0.2,
+                    max_tokens=800,
+                    json_mode=True
+                )
+
+                regen_data = self.llm_client.extract_json(regen)
+                if "destination" not in regen_data:
+                    regen_data["destination"] = destination.name
+                if "duration" not in regen_data:
+                    regen_data["duration"] = getattr(intent, 'duration_days', 1) or 1
+
+                try:
+                    itinerary2 = Itinerary(**regen_data)
+                    return itinerary2
+                except Exception as e2:
+                    logger.error(f"Regenerated itinerary validation failed: {e2}")
+                    # Fall back to best-effort model instantiation
+                    try:
+                        return Itinerary.model_validate(regen_data, strict=False)
+                    except Exception:
+                        # As last resort return minimal itinerary object
+                        return Itinerary(destination=destination.name, duration=getattr(intent, 'duration_days', 1) or 1)
+            except Exception as re:
+                logger.error(f"Auto-reask failed: {re}")
+                # Final fallback: return minimal itinerary
+                return Itinerary(destination=destination.name, duration=getattr(intent, 'duration_days', 1) or 1)
     
     def _create_prompt(self, intent: TravelIntent, destination: Destination, context: str, ml_data: Optional[Dict[str, Any]]) -> str:
         ml_context = f"\nML Insights: {ml_data}" if ml_data else ""
