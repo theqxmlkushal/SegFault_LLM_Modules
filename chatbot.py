@@ -400,6 +400,51 @@ class WanderAIChatbot:
                 self.print_bot_msg("Please enter a query (e.g., 'Plan a trip to Lonavala')")
                 continue
 
+            # ===== LAYER 0-3 CHECKS (BEFORE STATE ROUTING) =====
+            # These must be checked FIRST, even if in selection/confirmation state
+            
+            # LAYER 0: Frustration/Emotion Detection
+            if self.is_frustration_or_emotion(user_input):
+                self.print_bot_msg(
+                    "I sense some frustration! 😊 I'm here to help with travel planning. "
+                    "What destination or trip type are you interested in? "
+                    "For example: trekking, beach getaway, romantic trip, family outing?"
+                )
+                self.history.append({"role": "Bot", "content": "Frustration detected, not a query"})
+                continue
+            
+            # LAYER 1: Query Type Classification & Independence Detection
+            query_types = self.classify_query_type(user_input)
+            is_independent = self.is_query_independent(user_input)
+            
+            # If independent query detected AND in selection/confirmation state, reset and restart
+            if is_independent and self.should_reset_state(user_input):
+                self.state = "suggestion"
+                self.current_intent = None
+                self.current_suggestions = None
+                self.selected_destination = None
+                self.print_bot_msg("👂 Got it! Let me help you with a new trip. Tell me what you're thinking!")
+                self.history.append({"role": "Bot", "content": "State reset for new independent query"})
+                continue
+            
+            # LAYER 1c: Clarification Needs Check
+            needs_clarif, clarif_msg = self.needs_clarification(user_input, query_types)
+            if needs_clarif:
+                self.print_bot_msg(clarif_msg)
+                self.history.append({"role": "Bot", "content": f"Clarification requested: {clarif_msg}"})
+                continue
+            
+            # LAYER 2: Travel Trip Verification (only reject if clearly NOT a travel trip)
+            # But allow selection inputs to pass through for current state handlers
+            if self.state == "suggestion" and not self.is_travel_trip_query(user_input, query_types):
+                self.print_bot_msg(
+                    "I'm specialized in TRAVEL TRIPS! 😊 I can help you plan: "
+                    "beach getaways, trekking adventures, romantic trips, family vacations, etc. "
+                    "How can I help you plan your next trip?"
+                )
+                self.history.append({"role": "Bot", "content": "Not a travel trip query"})
+                continue
+
             # Route based on current state
             if self.state == "selection":
                 self.handle_selection_state(user_input)
