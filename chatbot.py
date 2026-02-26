@@ -36,6 +36,11 @@ class WanderAIChatbot:
         self.current_suggestions: List[Any] = []
         self.selected_destination: Optional[Any] = None
         self.state: str = "suggestion"  # suggestion, selection, confirmation
+        
+        # ===== NEW: Store pending clarification context =====
+        self.pending_clarification_query: Optional[str] = None
+        self.pending_query_types: Optional[List[str]] = None
+        self.awaiting_clarification_response: bool = False
 
     def get_history_string(self) -> str:
         return "\n".join([f"{h['role']}: {h['content']}" for h in self.history[-4:]])
@@ -400,6 +405,38 @@ class WanderAIChatbot:
                 self.print_bot_msg("Please enter a query (e.g., 'Plan a trip to Lonavala')")
                 continue
 
+            # ===== SPECIAL CASE: Handle clarification response =====
+            if self.awaiting_clarification_response:
+                # Check if user confirmed (yes, yep, sure, ok, etc.)
+                confirmation_responses = ["yes", "yep", "yeah", "sure", "ok", "okay", "absolutely", "definitely", "let's go", "sounds good"]
+                rejection_responses = ["no", "nope", "nah", "cancel", "never mind"]
+                
+                user_lower = user_input.lower()
+                
+                if any(resp in user_lower for resp in confirmation_responses):
+                    # User confirmed clarification, reprocess the pending query
+                    self.awaiting_clarification_response = False
+                    if self.pending_clarification_query:
+                        # Reprocess the query that needed clarification
+                        pending_q = self.pending_clarification_query
+                        self.pending_clarification_query = None
+                        self.pending_query_types = None
+                        # Now process this query in suggestion flow
+                        self.handle_suggestion_flow(pending_q)
+                        continue
+                
+                elif any(resp in user_lower for resp in rejection_responses):
+                    # User rejected, clear pending context
+                    self.awaiting_clarification_response = False
+                    self.pending_clarification_query = None
+                    self.pending_query_types = None
+                    self.print_bot_msg("No problem! What else can I help you plan?")
+                    continue
+                
+                # User gave unclear response to clarification
+                self.print_bot_msg("I'm not sure if you're confirming or not. Please say 'yes' or 'no' to the clarification.")
+                continue
+
             # ===== LAYER 0-3 CHECKS (BEFORE STATE ROUTING) =====
             # These must be checked FIRST, even if in selection/confirmation state
             
@@ -432,6 +469,10 @@ class WanderAIChatbot:
             if needs_clarif:
                 self.print_bot_msg(clarif_msg)
                 self.history.append({"role": "Bot", "content": f"Clarification requested: {clarif_msg}"})
+                # ===== NEW: Store pending query and wait for clarification response =====
+                self.awaiting_clarification_response = True
+                self.pending_clarification_query = user_input
+                self.pending_query_types = query_types
                 continue
             
             # LAYER 2: Travel Trip Verification (only reject if clearly NOT a travel trip)
