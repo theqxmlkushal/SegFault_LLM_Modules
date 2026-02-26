@@ -51,6 +51,150 @@ class WanderAIChatbot:
         except Exception:
             return False
 
+    # ============= NEW LAYERS FOR QUERY INDEPENDENCE & TYPE CLASSIFICATION =============
+
+    def is_frustration_or_emotion(self, query: str) -> bool:
+        """LAYER 0: Detect if query is frustration/emotion, not an actual request."""
+        frustration_markers = {
+            "anger": ["fuck", "damn", "shit", "crap", "pissed", "bullshit"],
+            "confusion": ["what", "why", "how is this"],
+            "helplessness": ["please", "dude", "bro", "help"],
+            "short_curses": ["the fuck", "what the fuck", "fuck this", "damn it"],
+        }
+        
+        query_lower = query.lower().strip()
+        
+        # Check for standalone short curses
+        for curse in frustration_markers["short_curses"]:
+            if curse in query_lower or query_lower == curse:
+                return True
+        
+        # Check for very short frustration expressions
+        if query_lower in frustration_markers["anger"]:
+            return True
+        
+        # "the fuck" by itself
+        if query_lower == "the fuck" or query_lower == "fuck":
+            return True
+        
+        return False
+
+    def classify_query_type(self, query: str) -> List[str]:
+        """LAYER 1: Classify what type of trip/activity the user is asking for."""
+        query_lower = query.lower()
+        detected_types = []
+        
+        type_keywords = {
+            "hiking": ["trek", "hike", "hiking", "mountain", "peak", "trail", "hill"],
+            "romantic": ["date", "girlfriend", "boyfriend", "romantic", "couple", "lover", "makeout"],
+            "family": ["family", "kids", "children", "parents", "kids trip"],
+            "adventure": ["adventure", "extreme", "paragliding", "rafting", "bungee"],
+            "beach": ["beach", "sea", "coastal", "ocean", "shore"],
+            "heritage": ["heritage", "history", "historical", "ancient", "temple", "fort", "monument"],
+            "budget": ["budget", "cheap", "affordable", "backpack", "minimal"],
+            "luxury": ["luxury", "5-star", "resort", "premium", "fancy"],
+            "cafe": ["cafe", "coffee", "restaurant", "dining", "food"],
+            "city": ["city", "urban", "town", "metro"],
+        }
+        
+        for trip_type, keywords in type_keywords.items():
+            if any(kw in query_lower for kw in keywords):
+                detected_types.append(trip_type)
+        
+        return detected_types if detected_types else ["general"]
+
+    def is_query_independent(self, current_query: str) -> bool:
+        """LAYER 1b: Check if current query is completely different from previous."""
+        if not self.current_intent:
+            return True  # First query, always independent
+        
+        # Get current query types
+        current_types = self.classify_query_type(current_query)
+        
+        # Check for trip-switching keywords
+        trip_switch_keywords = [
+            "also", "now", "instead", "different", "but what about",
+            "what if", "can you", "plan another", "suggest", "new trip",
+            "also plan", "next", "additionally", "furthermore"
+        ]
+        
+        query_lower = current_query.lower()
+        if any(kw in query_lower for kw in trip_switch_keywords):
+            return True
+        
+        # If no overlap with previous trip type, it's independent
+        prev_is_romantic = any(word in str(self.current_intent).lower() 
+                              for word in ["romantic", "date", "girlfriend", "boyfriend"])
+        curr_is_romantic = "romantic" in current_types or "date" in current_types
+        
+        if prev_is_romantic != curr_is_romantic:
+            return True
+        
+        return False
+
+    def needs_clarification(self, query: str, query_types: List[str]) -> tuple:
+        """LAYER 1c: Check if query needs clarification before processing."""
+        
+        # Too many conflicting types
+        if "budget" in query_types and "luxury" in query_types:
+            return True, "I notice you mentioned both budget AND luxury. Which would you prefer?"
+        
+        # Only mentions cafe/restaurant specifically, not a trip
+        if query_types == ["cafe"] or (len(query_types) == 1 and "cafe" in query_types):
+            return True, "Are you looking for cafe RECOMMENDATIONS in Pune, or a trip to a destination known for cafes?"
+        
+        # Romantic but not clear if it's a trip
+        if "romantic" in query_types and len(query_types) == 1:
+            if "trip" not in query.lower() and "destination" not in query.lower():
+                return True, "Great! Are you planning a romantic TRIP/getaway to a destination, or just date activity ideas?"
+        
+        # Cafe + romantic (need clarification on nature of trip)
+        if "cafe" in query_types and "romantic" in query_types:
+            if "destination" not in query.lower() and "trip" not in query.lower():
+                return True, "Perfect! Are you looking for a romantic getaway TRIP to a destination with nice cafes?"
+        
+        return False, ""
+
+    def is_travel_trip_query(self, query: str, query_types: List[str]) -> bool:
+        """LAYER 2: Check if query is actually a TRAVEL TRIP, not just local activity/social."""
+        
+        # Solo activity types that need travel context
+        activity_only_types = ["cafe"]
+        
+        # If query is ONLY about activity, not travel
+        if query_types == activity_only_types and len(query_types) == 1:
+            # Unless it mentions destination/trip
+            trip_keywords = ["trip", "destination", "travel", "visit", "getaway", "retreat"]
+            if not any(kw in query.lower() for kw in trip_keywords):
+                return False
+        
+        # Check for explicit trip-related keywords
+        trip_indicators = ["trip", "destination", "travel", "visit", "getaway", "retreat",  
+                          "itinerary", "days", "nights", "accommodation", "stay"]
+        if any(indicator in query.lower() for indicator in trip_indicators):
+            return True
+        
+        # If has ANY standard trip type, it's a trip query
+        trip_types = ["hiking", "romantic", "family", "adventure", "beach", "heritage", "budget", "luxury"]
+        if any(t in query_types for t in trip_types):
+            return True
+        
+        return False
+
+    def should_reset_state(self, current_query: str) -> bool:
+        """LAYER 3: Decide if conversation state needs to be reset."""
+        
+        if not self.state or self.state == "suggestion":
+            return False  # Normal flow, no reset
+        
+        # If in confirmation state, check if user is asking something NEW
+        if self.state == "confirmation":
+            new_query_patterns = ["plan", "suggest", "what about", "can you", "find", "another"]
+            if any(pattern in current_query.lower() for pattern in new_query_patterns):
+                return True
+        
+        return False
+
     def is_gibberish_or_spam(self, user_input: str) -> bool:
         """Detect gibberish, spam, or meaningless input."""
         user_lower = user_input.lower().strip()
@@ -267,6 +411,46 @@ class WanderAIChatbot:
 
     def handle_suggestion_flow(self, user_input: str):
         """Handle normal suggestion flow with comprehensive edge case handling."""
+        
+        # ===== LAYER 0: Frustration/Emotion Detection =====
+        if self.is_frustration_or_emotion(user_input):
+            self.print_bot_msg(
+                "I sense some frustration! 😊 I'm here to help with travel planning. "
+                "What destination or trip type are you interested in? "
+                "For example: trekking, beach getaway, romantic trip, family outing?"
+            )
+            self.history.append({"role": "Bot", "content": "Frustration detected, not a query"})
+            return
+        
+        # ===== LAYER 1: Query Type Classification & Independence =====
+        query_types = self.classify_query_type(user_input)
+        
+        # Check if query is independent from previous
+        is_independent = self.is_query_independent(user_input)
+        
+        # Reset state if switching to a new query type
+        if is_independent and self.should_reset_state(user_input):
+            self.state = "suggestion"
+            self.current_intent = None
+            self.current_suggestions = None
+            self.selected_destination = None
+        
+        # ===== LAYER 1b: Check if needs clarification =====
+        needs_clarif, clarif_msg = self.needs_clarification(user_input, query_types)
+        if needs_clarif:
+            self.print_bot_msg(clarif_msg)
+            self.history.append({"role": "Bot", "content": f"Clarification requested: {clarif_msg}"})
+            return
+        
+        # ===== LAYER 2: Verify this is actually a TRAVEL TRIP =====
+        if not self.is_travel_trip_query(user_input, query_types):
+            self.print_bot_msg(
+                "I'm specialized in TRAVEL TRIPS! 😊 I can help you plan: "
+                "beach getaways, trekking adventures, romantic trips, family vacations, etc. "
+                "How can I help you plan your next trip?"
+            )
+            self.history.append({"role": "Bot", "content": "Not a travel trip query"})
+            return
         
         # Edge Case 0: Gibberish/Spam Detection
         if self.is_gibberish_or_spam(user_input):
